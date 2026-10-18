@@ -3,6 +3,16 @@ let flashes = [];
 let stars = [];
 let tombstones = [];
 let pumpkins = [];
+let bats = [];
+
+let moonImg;
+let ghostImg;
+let bossImg;
+let beamImg;
+let batImgs = [];
+let pumpkinImgs = [];
+let tombImgs = [];
+
 let score = 0;
 let lives = 5;
 let gameOver = false;
@@ -16,6 +26,30 @@ let waveTextTimer = 120;
 
 let currentBoss = null;
 
+function preload() {
+  moonImg = loadImage('assets/moon.png');
+  ghostImg = loadImage('assets/ghost.png');
+  bossImg = loadImage('assets/boss_king.png');
+  beamImg = loadImage('assets/beam.png');
+
+  for (let i = 0; i < 8; i++) {
+    batImgs.push(loadImage('assets/bat' + i + '.png'));
+  }
+
+  for (let i = 1; i <= 5; i++) {
+    pumpkinImgs.push(loadImage('assets/pumpkin' + i + '.png'));
+  }
+
+  tombImgs.push(
+    loadImage('assets/tomb_grave.png'),
+    loadImage('assets/tomb_grave2.png'),
+    loadImage('assets/tomb_cross0.png'),
+    loadImage('assets/tomb_cross1.png'),
+    loadImage('assets/tomb_cross2.png'),
+    loadImage('assets/tomb_cross3.png')
+  );
+}
+
 function setup() {
   createCanvas(windowWidth, windowHeight);
   
@@ -26,17 +60,32 @@ function setup() {
   let tombstoneCount = Math.floor(width / 120);
   for (let i = 0; i < tombstoneCount; i++) {
     tombstones.push({
-      x: random(i * 120, (i + 1) * 120 - 30),
-      w: random(20, 30),
-      h: random(35, 50)
+      x: random(i * 120 + 20, (i + 1) * 120 - 20),
+      size: random(28, 40),
+      img: random(tombImgs),
+      flip: random(1) > 0.5
     });
   }
 
   for (let i = 0; i < 4; i++) {
     pumpkins.push({
       x: random(50, width - 50),
-      y: height - 25,
-      size: random(25, 35)
+      size: random(25, 35),
+      img: random(pumpkinImgs)
+    });
+  }
+
+  for (let i = 0; i < 6; i++) {
+    let speed = random(0.7, 1.6);
+    if (random(1) > 0.5) speed *= -1;
+
+    bats.push({
+      x: random(width),
+      y: random(60, min(height * 0.5, 340)),
+      speed: speed,
+      size: random(26, 42),
+      frame: floor(random(batImgs.length)),
+      frameTimer: floor(random(5))
     });
   }
 }
@@ -88,6 +137,20 @@ function updateGame() {
     if (flashes[i].alpha <= 0) flashes.splice(i, 1);
   }
 
+  for (let b of bats) {
+    b.x += b.speed;
+    b.frameTimer++;
+    if (b.frameTimer >= 5) {
+      b.frameTimer = 0;
+      b.frame = (b.frame + 1) % batImgs.length;
+    }
+
+    if (b.x > width + 60 || b.x < -60) {
+      b.x = b.speed > 0 ? -60 : width + 60;
+      b.y = random(60, min(height * 0.5, 340));
+    }
+  }
+
   for (let i = ghosts.length - 1; i >= 0; i--) {
     ghosts[i].update();
     if (ghosts[i].y > height - 40) {
@@ -100,6 +163,8 @@ function updateGame() {
 
 function renderEverything() {
   background(25, 10, 45);
+  imageMode(CENTER);
+  drawingContext.imageSmoothingEnabled = false;
 
   for (let s of stars) {
     fill(255, 255, 200, s.brightness);
@@ -109,35 +174,25 @@ function renderEverything() {
   }
 
   fill(255, 140, 0, 20);
-  circle(120, 120, 140);
+  circle(120, 120, 190);
   fill(255, 180, 50, 40);
-  circle(120, 120, 110);
-  fill(255, 220, 100);
-  circle(120, 120, 95);
+  circle(120, 120, 165);
+  image(moonImg, 120, 120, 150, 150);
 
-  fill(15, 5, 25);
-  push();
-  translate(110, 100);
-  scale(0.7);
-  triangle(0, 0, -20, -10, -5, 5);
-  triangle(0, 0, 20, -10, 5, 5);
-  pop();
-
-  push();
-  translate(150, 130);
-  scale(0.5);
-  triangle(0, 0, -20, -10, -5, 5);
-  triangle(0, 0, 20, -10, 5, 5);
-  pop();
+  for (let b of bats) {
+    push();
+    translate(b.x, b.y);
+    if (b.speed < 0) scale(-1, 1);
+    image(batImgs[b.frame], 0, 0, b.size, b.size);
+    pop();
+  }
 
   for (let t of tombstones) {
-    fill(80, 85, 95);
-    noStroke();
-    rect(t.x, height - 40 - t.h, t.w, t.h, 8, 8, 0, 0);
-    stroke(40);
-    strokeWeight(2);
-    line(t.x + t.w / 2, height - 40 - t.h + 10, t.x + t.w / 2, height - 40 - t.h + 28);
-    line(t.x + t.w / 2 - 6, height - 40 - t.h + 16, t.x + t.w / 2 + 6, height - 40 - t.h + 16);
+    push();
+    translate(t.x, height - 40 - t.size / 2);
+    if (t.flip) scale(-1, 1);
+    image(t.img, 0, 0, t.size, t.size);
+    pop();
   }
 
   noStroke();
@@ -148,23 +203,21 @@ function renderEverything() {
   strokeWeight(3);
   line(0, height - 40, width, height - 40);
 
+  noStroke();
   for (let p of pumpkins) {
-    noStroke();
-    fill(230, 90, 10);
-    ellipse(p.x, p.y, p.size, p.size * 0.85);
-    fill(50, 120, 40);
-    rect(p.x - 2, p.y - p.size * 0.5, 4, 6);
-    fill(255, 200, 0);
-    triangle(p.x - 5, p.y - 2, p.x - 2, p.y - 5, p.x - 1, p.y - 2);
-    triangle(p.x + 1, p.y - 2, p.x + 2, p.y - 5, p.x + 5, p.y - 2);
-    arc(p.x, p.y + 4, 10, 6, 0, PI, CHORD);
+    image(p.img, p.x, height - 40 - p.size / 2, p.size, p.size);
   }
 
   for (let f of flashes) {
-    stroke(0, 255, 180, f.alpha);
-    strokeWeight(4);
-    line(f.x1, f.y1, f.x2, f.y2);
+    let d = dist(f.x1, f.y1, f.x2, f.y2);
+    push();
+    translate(f.x1, f.y1);
+    rotate(atan2(f.y2 - f.y1, f.x2 - f.x1) + HALF_PI);
+    tint(255, 255, 255, f.alpha);
+    image(beamImg, 0, -d / 2, 34, d);
+    pop();
   }
+  noTint();
 
   if (currentBoss) {
     currentBoss.render();
@@ -173,6 +226,7 @@ function renderEverything() {
   for (let g of ghosts) {
     g.render();
   }
+  noTint();
 
   if (waveTextTimer > 0 && !gamePaused) {
     textAlign(CENTER, CENTER);
@@ -254,8 +308,9 @@ function mousePressed() {
   });
 
   if (currentBoss) {
-    let d = dist(mouseX, mouseY, currentBoss.x, currentBoss.y);
-    if (d < currentBoss.size / 1.8) {
+    let dxn = (mouseX - currentBoss.x) / 55;
+    let dyn = (mouseY - currentBoss.y) / 95;
+    if (dxn * dxn + dyn * dyn < 1) {
       currentBoss.hp -= 10;
       score += 5;
       return;
@@ -317,7 +372,7 @@ class Ghost {
     if (isMinion) {
       this.r = 255; this.g = 130; this.b = 0;
     } else {
-      this.r = 220; this.g = 240; this.b = 255;
+      this.r = 255; this.g = 255; this.b = 255;
     }
   }
 
@@ -329,14 +384,8 @@ class Ghost {
   }
 
   render() {
-    noStroke();
-    fill(this.r, this.g, this.b, 210);
-    ellipse(this.x, this.y, this.size, this.size * 1.2);
-    rect(this.x - this.size / 2, this.y, this.size, this.size * 0.5);
-
-    fill(10, 5, 25);
-    circle(this.x - this.size * 0.18, this.y - 2, this.isMinion ? 4 : 5);
-    circle(this.x + this.size * 0.18, this.y - 2, this.isMinion ? 4 : 5);
+    tint(this.r, this.g, this.b, 210);
+    image(ghostImg, this.x, this.y, this.size, this.size);
   }
 }
 
@@ -376,21 +425,8 @@ class Boss {
   }
 
   render() {
-    noStroke();
-    fill(60, 20, 90, 230);
-    ellipse(this.x, this.y, this.size, this.size * 1.3);
-    rect(this.x - this.size / 2, this.y, this.size, this.size * 0.6);
-
-    for (let i = -2; i <= 2; i++) {
-      ellipse(this.x + (i * this.size * 0.2), this.y + this.size * 0.6, this.size * 0.24, this.size * 0.35);
-    }
-
-    fill(255, 60, 0);
-    ellipse(this.x - this.size * 0.22, this.y - 12, 22, 28);
-    ellipse(this.x + this.size * 0.22, this.y - 12, 22, 28);
-    fill(255, 230, 0);
-    circle(this.x - this.size * 0.2, this.y - 10, 8);
-    circle(this.x + this.size * 0.24, this.y - 10, 8);
+    let fr = floor(millis() / 160) % 3;
+    image(bossImg, this.x, this.y, 85, 170, fr * 32, 0, 32, 64);
 
     let barWidth = 180;
     let barHeight = 12;
